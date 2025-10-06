@@ -33,3 +33,4 @@ chrono-tz = "0.8"
 regex = "1"
 sha2 = "0.10"
 dirs = "5"
+tokio = { version = "1", features = ["sync", "time"] }

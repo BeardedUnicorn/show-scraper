@@ -1,11 +1,17 @@
 use std::collections::HashMap;
 use std::sync::Mutex;
+use std::time::{Duration, Instant};
 
 use once_cell::sync::Lazy;
 use reqwest::{Client, Url};
-use serde::Deserialize;
+use rusqlite;
+use serde::{Deserialize, Serialize};
 use serde_json::{json, Map, Value};
+use tauri::async_runtime;
+use tokio::sync::Mutex as AsyncMutex;
+use tokio::time::sleep;
 
+use crate::db::Store;
 use crate::models::Event;
 
 static CLIENT: Lazy<Client> = Lazy::new(|| {
@@ -20,7 +26,12 @@ static CLIENT: Lazy<Client> = Lazy::new(|| {
 static CACHE: Lazy<Mutex<HashMap<String, Option<ArtistProfile>>>> =
     Lazy::new(|| Mutex::new(HashMap::new()));
 
-#[derive(Debug, Clone, Deserialize)]
+static REQUEST_QUEUE: Lazy<AsyncMutex<()>> = Lazy::new(|| AsyncMutex::new(()));
+static LAST_REQUEST: Lazy<AsyncMutex<Option<Instant>>> = Lazy::new(|| AsyncMutex::new(None));
+
+const RATE_LIMIT_WINDOW_MS: u64 = 1100;
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ArtistProfile {
     pub id: String,
     pub name: String,
@@ -34,6 +45,8 @@ pub enum MusicBrainzError {
     Http(String),
     #[error("parse error: {0}")]
     Parse(String),
+    #[error("cache error: {0}")]
+    Cache(String),
 }
 
 #[derive(Debug, Deserialize)]
@@ -105,6 +118,14 @@ async fn lookup_artist(name: &str) -> Result<Option<ArtistProfile>, MusicBrainzE
         return Ok(cached);
     }
 
+    if let Some(stored) = load_cached_profile(&key).await? {
+        CACHE
+            .lock()
+            .expect("musicbrainz cache poisoned")
+            .insert(key.clone(), stored.clone());
+        return Ok(stored);
+    }
+
     let sanitized = name.replace('"', " ");
     let mut url = Url::parse("https://musicbrainz.org/ws/2/artist/")
         .map_err(|err| MusicBrainzError::Http(err.to_string()))?;
@@ -113,6 +134,39 @@ async fn lookup_artist(name: &str) -> Result<Option<ArtistProfile>, MusicBrainzE
         .append_pair("fmt", "json")
         .append_pair("limit", "1")
         .append_pair("inc", "tags+genres");
+
+    let text = fetch_artist_payload(url).await?;
+
+    let payload: ArtistSearchResponse =
+        serde_json::from_str(&text).map_err(|err| MusicBrainzError::Parse(err.to_string()))?;
+
+    let profile = payload
+        .artists
+        .and_then(|mut list| list.pop())
+        .map(|artist| {
+            let genres = extract_genres(&artist);
+            ArtistProfile {
+                id: artist.id,
+                name: artist.name,
+                disambiguation: artist.disambiguation,
+                genres,
+            }
+        })
+        .filter(|profile| !profile.genres.is_empty());
+
+    store_cached_profile(&key, &profile).await?;
+
+    CACHE
+        .lock()
+        .expect("musicbrainz cache poisoned")
+        .insert(key, profile.clone());
+
+    Ok(profile)
+}
+
+async fn fetch_artist_payload(url: Url) -> Result<String, MusicBrainzError> {
+    let _guard = REQUEST_QUEUE.lock().await;
+    wait_for_rate_limit().await;
 
     let response = CLIENT
         .get(url)
@@ -132,29 +186,47 @@ async fn lookup_artist(name: &str) -> Result<Option<ArtistProfile>, MusicBrainzE
         )));
     }
 
-    let payload: ArtistSearchResponse =
-        serde_json::from_str(&text).map_err(|err| MusicBrainzError::Parse(err.to_string()))?;
+    Ok(text)
+}
 
-    let profile = payload
-        .artists
-        .and_then(|mut list| list.pop())
-        .map(|artist| {
-            let genres = extract_genres(&artist);
-            ArtistProfile {
-                id: artist.id,
-                name: artist.name,
-                disambiguation: artist.disambiguation,
-                genres,
-            }
-        })
-        .filter(|profile| !profile.genres.is_empty());
+async fn wait_for_rate_limit() {
+    let mut last = LAST_REQUEST.lock().await;
+    if let Some(previous) = *last {
+        let elapsed = previous.elapsed();
+        let window = Duration::from_millis(RATE_LIMIT_WINDOW_MS);
+        if elapsed < window {
+            sleep(window - elapsed).await;
+        }
+    }
+    *last = Some(Instant::now());
+}
 
-    CACHE
-        .lock()
-        .expect("musicbrainz cache poisoned")
-        .insert(key, profile.clone());
+async fn load_cached_profile(key: &str) -> Result<Option<Option<ArtistProfile>>, MusicBrainzError> {
+    let key_owned = key.to_string();
+    let result = async_runtime::spawn_blocking(move || -> rusqlite::Result<_> {
+        let store = Store::open_default()?;
+        store.get_musicbrainz_profile(&key_owned)
+    })
+    .await
+    .map_err(|err| MusicBrainzError::Cache(err.to_string()))?;
 
-    Ok(profile)
+    result.map_err(|err| MusicBrainzError::Cache(err.to_string()))
+}
+
+async fn store_cached_profile(
+    key: &str,
+    profile: &Option<ArtistProfile>,
+) -> Result<(), MusicBrainzError> {
+    let key_owned = key.to_string();
+    let profile_clone = profile.clone();
+    let result = async_runtime::spawn_blocking(move || -> rusqlite::Result<_> {
+        let store = Store::open_default()?;
+        store.put_musicbrainz_profile(&key_owned, &profile_clone)
+    })
+    .await
+    .map_err(|err| MusicBrainzError::Cache(err.to_string()))?;
+
+    result.map_err(|err| MusicBrainzError::Cache(err.to_string()))
 }
 
 fn extract_genres(doc: &ArtistDoc) -> Vec<String> {
