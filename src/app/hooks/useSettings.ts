@@ -12,9 +12,6 @@ const DEFAULT_SETTINGS: AppSettings = {
   dataDirectory: "~/Library/Application Support/show-scrape",
   autoOpenPreview: true,
   notifyOnPost: true,
-  facebookAppId: "",
-  facebookAppSecret: "",
-  facebookRedirectUri: "show-scrape://auth/callback",
 };
 
 function readSettings(): AppSettings {

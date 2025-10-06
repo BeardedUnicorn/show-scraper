@@ -59,9 +59,6 @@ export type AppSettings = {
   dataDirectory: string;
   autoOpenPreview: boolean;
   notifyOnPost: boolean;
-  facebookAppId: string;
-  facebookAppSecret: string;
-  facebookRedirectUri: string;
 };
 
 export function createEmptyBuckets(): PendingBuckets {

@@ -126,28 +126,11 @@ impl Store {
         Ok(event)
     }
 
-    pub fn mark_posted(&self, event_id: &str, fb_id: &str) -> rusqlite::Result<()> {
+    pub fn mark_posted(&self, event_id: &str) -> rusqlite::Result<()> {
         let now = Utc::now().to_rfc3339();
         self.conn.execute(
             "UPDATE events SET posted_at_utc = ?2, last_seen_utc = ?2 WHERE id = ?1",
             params![event_id, now],
-        )?;
-        let post_payload = json!({
-            "fb_id": fb_id,
-            "posted_at": now,
-        })
-        .to_string();
-        self.conn.execute(
-            "INSERT INTO posts (post_id, event_id, fb_object_id, created_at_utc, status, response_json)
-             VALUES (?1, ?2, ?3, ?4, ?5, ?6)",
-            params![
-                fb_id,
-                event_id,
-                fb_id,
-                now,
-                "posted",
-                post_payload
-            ],
         )?;
         Ok(())
     }

@@ -1,6 +1,8 @@
 # Tauri v2 ShowScraper – React + TypeScript App Plan
 
-A desktop app that scrapes multiple music-venue sites, normalizes events, dedupes & persists them, composes a Facebook-group post via an **OpenAI‑compatible API**, and publishes it through the Facebook Graph API. Built with **Tauri v2 (Rust backend)** and **React + TypeScript** frontend.
+A desktop app that scrapes multiple music-venue sites, normalizes events, dedupes & persists them, composes a Facebook-group post via an **OpenAI‑compatible API**, and now hands drafts to humans for manual Facebook publishing. Built with **Tauri v2 (Rust backend)** and **React + TypeScript** frontend.
+
+> **Update:** The automated Facebook Graph API integration has been removed. Drafts are generated locally and operators copy them into Facebook groups before marking events as posted.
 
 ---
 
@@ -10,7 +12,7 @@ A desktop app that scrapes multiple music-venue sites, normalizes events, dedupe
 - Normalization to a canonical `Event` model (UTC + local times, stable ID).
 - SQLite persistence + idempotent posting state.
 - Post composition via configurable OpenAI‑compatible server/model.
-- Facebook Group posting with token stored securely.
+- Manual Facebook workflow: generate drafts, copy them into Facebook, and mark shows as posted inside the app.
 - Scheduler for automatic runs (interval or cron-like).
 - UI for: config, venue management, "Run now", preview & approve posts, history.
 
@@ -57,7 +59,6 @@ show-scraper/
       models.rs
       normalize.rs
       llm.rs
-      facebook.rs
       scheduler.rs
       scraping/
         mod.rs
