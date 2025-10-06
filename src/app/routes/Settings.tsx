@@ -121,32 +121,51 @@ export default function Settings() {
   }, []);
 
   return (
-    <div className="space-y-6">
-      <div className="section-header">
-        <div className="section-header__title">Settings</div>
-        <div className="actions" style={{ display: "flex", gap: "12px" }}>
-          <button className="button" onClick={reset} disabled={isDisabled}>
+    <div className="space-y-6" data-testid="settings-page">
+      <div className="section-header" data-testid="settings-header">
+        <div className="section-header__title" data-testid="settings-title">
+          Settings
+        </div>
+        <div
+          className="actions"
+          style={{ display: "flex", gap: "12px" }}
+          data-testid="settings-header-actions"
+        >
+          <button
+            className="button"
+            onClick={reset}
+            disabled={isDisabled}
+            data-testid="settings-reset-button"
+          >
             Reset to Defaults
           </button>
           <button
             className="button"
             onClick={save}
             disabled={isDisabled || !dirty}
+            data-testid="settings-save-button"
           >
             Save Changes
           </button>
         </div>
       </div>
 
-      <div className="card form-section">
-        <header className="form-section__header">
-          <h2>AI Composer</h2>
-          <p>Configure how the desktop app talks to your OpenAI-compatible server.</p>
+      <div className="card form-section" data-testid="settings-ai-composer-section">
+        <header className="form-section__header" data-testid="settings-ai-composer-header">
+          <h2 data-testid="settings-ai-composer-title">AI Composer</h2>
+          <p data-testid="settings-ai-composer-description">
+            Configure how the desktop app talks to your OpenAI-compatible server.
+          </p>
         </header>
-        <div className="form-grid">
-          <label className="form-field">
-            <span className="form-field__label">OpenAI-compatible Endpoint</span>
-            <span className="form-field__description">
+        <div className="form-grid" data-testid="settings-ai-composer-grid">
+          <label className="form-field" data-testid="settings-endpoint-field">
+            <span className="form-field__label" data-testid="settings-endpoint-label">
+              OpenAI-compatible Endpoint
+            </span>
+            <span
+              className="form-field__description"
+              data-testid="settings-endpoint-description"
+            >
               Defaults to {DEFAULT_LLM_ENDPOINT}. Update this to point at your server’s `/v1` base URL.
             </span>
             <input
@@ -156,21 +175,28 @@ export default function Settings() {
               onChange={(event) => update("llmEndpoint", event.target.value)}
               placeholder={DEFAULT_LLM_ENDPOINT}
               disabled={isDisabled}
+              data-testid="settings-endpoint-input"
             />
           </label>
 
-          <label className="form-field">
-            <span className="form-field__label">Model</span>
-            <span className="form-field__description">
+          <label className="form-field" data-testid="settings-model-field">
+            <span className="form-field__label" data-testid="settings-model-label">
+              Model
+            </span>
+            <span className="form-field__description" data-testid="settings-model-description">
               Pick from models reported by the API’s `/models` endpoint.
             </span>
-            <div style={{ display: "flex", gap: "12px", flexWrap: "wrap" }}>
+            <div
+              style={{ display: "flex", gap: "12px", flexWrap: "wrap" }}
+              data-testid="settings-model-controls"
+            >
               <select
                 className="input"
                 value={settings.llmModel || ""}
                 onChange={(event) => update("llmModel", event.target.value)}
                 disabled={isDisabled || modelsBusy || !modelSelectOptions.length}
                 style={{ flex: "1 1 220px", minWidth: "160px" }}
+                data-testid="settings-model-select"
               >
                 <option value="" disabled>
                   {modelsBusy
@@ -180,7 +206,7 @@ export default function Settings() {
                     : "No models available"}
                 </option>
                 {modelSelectOptions.map((value) => (
-                  <option key={value} value={value}>
+                  <option key={value} value={value} data-testid={`settings-model-option-${value}`}>
                     {value}
                   </option>
                 ))}
@@ -190,12 +216,17 @@ export default function Settings() {
                 type="button"
                 onClick={handleReloadModels}
                 disabled={modelsBusy || isDisabled}
+                data-testid="settings-reload-models-button"
               >
                 {modelsBusy ? "Refreshing…" : "Reload Models"}
               </button>
             </div>
             {modelsError && (
-              <div className="form-field__description" style={{ color: "#c00" }}>
+              <div
+                className="form-field__description"
+                style={{ color: "#c00" }}
+                data-testid="settings-model-error"
+              >
                 {modelsError}
               </div>
             )}
@@ -203,38 +234,52 @@ export default function Settings() {
         </div>
       </div>
 
-      <div className="card form-section">
-        <header className="form-section__header">
-          <h2>Posting Workflow</h2>
-          <p>Drafts are generated here and posted to Facebook manually.</p>
+      <div className="card form-section" data-testid="settings-posting-section">
+        <header className="form-section__header" data-testid="settings-posting-header">
+          <h2 data-testid="settings-posting-title">Posting Workflow</h2>
+          <p data-testid="settings-posting-description">
+            Drafts are generated here and posted to Facebook manually.
+          </p>
         </header>
 
-        <div className="form-grid">
-          <label className="checkbox-field">
+        <div className="form-grid" data-testid="settings-posting-grid">
+          <label className="checkbox-field" data-testid="settings-notify-field">
             <input
               type="checkbox"
               checked={settings.notifyOnPost}
               onChange={(event) => update("notifyOnPost", event.target.checked)}
               disabled={isDisabled}
+              data-testid="settings-notify-checkbox"
             />
-            <div>
-              <span className="form-field__label">Show notification after marking posted</span>
-              <span className="form-field__description">
+            <div data-testid="settings-notify-text">
+              <span className="form-field__label" data-testid="settings-notify-label">
+                Show notification after marking posted
+              </span>
+              <span
+                className="form-field__description"
+                data-testid="settings-notify-description"
+              >
                 Keep the manual workflow visible with a toast after events are marked complete.
               </span>
             </div>
           </label>
 
-          <label className="checkbox-field">
+          <label className="checkbox-field" data-testid="settings-auto-preview-field">
             <input
               type="checkbox"
               checked={settings.autoOpenPreview}
               onChange={(event) => update("autoOpenPreview", event.target.checked)}
               disabled={isDisabled}
+              data-testid="settings-auto-preview-checkbox"
             />
-            <div>
-              <span className="form-field__label">Auto-open post preview</span>
-              <span className="form-field__description">
+            <div data-testid="settings-auto-preview-text">
+              <span className="form-field__label" data-testid="settings-auto-preview-label">
+                Auto-open post preview
+              </span>
+              <span
+                className="form-field__description"
+                data-testid="settings-auto-preview-description"
+              >
                 When enabled, the Pending Posts screen shows the AI draft after a scrape finishes.
               </span>
             </div>
@@ -242,15 +287,22 @@ export default function Settings() {
         </div>
       </div>
 
-      <div className="card form-section">
-        <header className="form-section__header">
-          <h2>Storage</h2>
-          <p>Control where exports, logs, and the SQLite database live.</p>
+      <div className="card form-section" data-testid="settings-storage-section">
+        <header className="form-section__header" data-testid="settings-storage-header">
+          <h2 data-testid="settings-storage-title">Storage</h2>
+          <p data-testid="settings-storage-description">
+            Control where exports, logs, and the SQLite database live.
+          </p>
         </header>
-        <div className="form-grid">
-          <label className="form-field">
-            <span className="form-field__label">Data Directory</span>
-            <span className="form-field__description">
+        <div className="form-grid" data-testid="settings-storage-grid">
+          <label className="form-field" data-testid="settings-data-directory-field">
+            <span className="form-field__label" data-testid="settings-data-directory-label">
+              Data Directory
+            </span>
+            <span
+              className="form-field__description"
+              data-testid="settings-data-directory-description"
+            >
               Set the folder where the scraper writes the SQLite database and debug output.
             </span>
             <input
@@ -259,24 +311,29 @@ export default function Settings() {
               value={settings.dataDirectory}
               onChange={(event) => update("dataDirectory", event.target.value)}
               disabled={isDisabled}
+              data-testid="settings-data-directory-input"
             />
           </label>
         </div>
       </div>
 
-      <div className="card form-section">
-        <header className="form-section__header">
-          <h2>Quick Reference</h2>
-          <p>All settings are stored locally on this machine.</p>
+      <div className="card form-section" data-testid="settings-quick-reference-section">
+        <header className="form-section__header" data-testid="settings-quick-reference-header">
+          <h2 data-testid="settings-quick-reference-title">Quick Reference</h2>
+          <p data-testid="settings-quick-reference-description">
+            All settings are stored locally on this machine.
+          </p>
         </header>
-        <ul className="summary-list">
-          <li>
+        <ul className="summary-list" data-testid="settings-quick-reference-list">
+          <li data-testid="settings-quick-reference-save">
             <strong>Save</strong> commits changes to browser storage and updates the Pending Posts behavior.
           </li>
-          <li>
+          <li data-testid="settings-quick-reference-reset">
             <strong>Reset</strong> restores defaults (model, directories, toggles) without touching scraped data.
           </li>
-          <li>{savedAt ? `Last saved ${savedAt}.` : "Settings have not been saved yet."}</li>
+          <li data-testid="settings-quick-reference-saved-at">
+            {savedAt ? `Last saved ${savedAt}.` : "Settings have not been saved yet."}
+          </li>
         </ul>
       </div>
     </div>

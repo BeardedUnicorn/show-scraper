@@ -132,32 +132,51 @@ export default function PendingPosts() {
   }
 
   return (
-    <div className="space-y-6">
-      <div className="section-header">
-        <div className="section-header__title">Pending Posts</div>
-        <div className="actions" style={{ display: "flex", gap: "12px" }}>
-          <button className="button" onClick={refresh} disabled={loading || busy}>
+    <div className="space-y-6" data-testid="pending-posts-page">
+      <div className="section-header" data-testid="pending-posts-header">
+        <div className="section-header__title" data-testid="pending-posts-title">
+          Pending Posts
+        </div>
+        <div
+          className="actions"
+          style={{ display: "flex", gap: "12px" }}
+          data-testid="pending-posts-actions"
+        >
+          <button
+            className="button"
+            onClick={refresh}
+            disabled={loading || busy}
+            data-testid="pending-posts-refresh-button"
+          >
             {loading ? "Refreshing…" : "Refresh"}
           </button>
           <button
             className="button"
             disabled={!ids.length || busy}
             onClick={handleMarkPosted}
+            data-testid="pending-posts-mark-posted-button"
           >
             {busy ? "Marking…" : `Mark Posted (${ids.length})`}
           </button>
         </div>
       </div>
 
-      <div className="card" style={{ background: "rgba(59, 130, 246, 0.07)" }}>
-        <p style={{ margin: 0 }}>
+      <div
+        className="card"
+        style={{ background: "rgba(59, 130, 246, 0.07)" }}
+        data-testid="pending-posts-instructions-card"
+      >
+        <p style={{ margin: 0 }} data-testid="pending-posts-instructions-text">
           Copy each draft into Facebook manually. When a show is published, use <strong>Mark Posted</strong>
           to archive it here.
         </p>
       </div>
 
       {toast && (
-        <div className={`toast${toast.kind === "error" ? " toast--error" : ""}`}>
+        <div
+          className={`toast${toast.kind === "error" ? " toast--error" : ""}`}
+          data-testid="pending-posts-toast"
+        >
           {toast.message}
         </div>
       )}
@@ -181,27 +200,43 @@ export default function PendingPosts() {
       })}
 
       {preview && (
-        <div className="card" style={{ whiteSpace: "pre-wrap" }}>
-          <div className="badge" style={{ marginBottom: "12px" }}>
+        <div
+          className="card"
+          style={{ whiteSpace: "pre-wrap" }}
+          data-testid="pending-posts-preview-card"
+        >
+          <div
+            className="badge"
+            style={{ marginBottom: "12px" }}
+            data-testid="pending-posts-preview-badge"
+          >
             Post Preview
           </div>
           {previewEventId && (
-            <div style={{ marginBottom: "12px" }}>
+            <div
+              style={{ marginBottom: "12px" }}
+              data-testid="pending-posts-preview-controls"
+            >
               <button
                 className="button"
                 onClick={() => handlePreview(previewEventId, { force: true })}
                 disabled={!!previewingId}
+                data-testid="pending-posts-regenerate-button"
               >
                 {previewingId === previewEventId ? "Refreshing…" : "Regenerate Preview"}
               </button>
             </div>
           )}
           {previewGenre && (
-            <div className="badge" style={{ marginBottom: "12px" }}>
+            <div
+              className="badge"
+              style={{ marginBottom: "12px" }}
+              data-testid="pending-posts-preview-genre"
+            >
               Genre: {previewGenre}
             </div>
           )}
-          {preview}
+          <div data-testid="pending-posts-preview-content">{preview}</div>
         </div>
       )}
     </div>
@@ -229,14 +264,27 @@ function BucketSection({
   previewEventId,
   genresById,
 }: BucketSectionProps) {
+  const slug = label
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/(^-|-$)/g, "")
+    || "bucket";
   return (
-    <section className="card">
-      <div className="section-header" style={{ marginBottom: "12px" }}>
-        <div className="section-header__title" style={{ fontSize: "18px" }}>
-          {label} <span className="badge">{rows.length}</span>
+    <section className="card" data-testid={`pending-posts-bucket-${slug}`}>
+      <div
+        className="section-header"
+        style={{ marginBottom: "12px" }}
+        data-testid={`pending-posts-bucket-header-${slug}`}
+      >
+        <div
+          className="section-header__title"
+          style={{ fontSize: "18px" }}
+          data-testid={`pending-posts-bucket-title-${slug}`}
+        >
+          {label} <span className="badge" data-testid={`pending-posts-bucket-count-${slug}`}>{rows.length}</span>
         </div>
       </div>
-      <div className="pending-grid">
+      <div className="pending-grid" data-testid={`pending-posts-bucket-grid-${slug}`}>
         {rows.map(({ days_until, event }) => {
           const checked = !!selected[event.id];
           const eventTime = new Date(event.start_local ?? event.start_utc);
@@ -245,23 +293,31 @@ function BucketSection({
           const isCurrentPreview = previewEventId === event.id;
           const genre = genresById[event.id];
           return (
-            <div key={event.id} className="pending-card">
+            <div
+              key={event.id}
+              className="pending-card"
+              data-testid={`pending-card-${event.id}`}
+            >
               <input
                 type="checkbox"
                 checked={checked}
                 onChange={(e) =>
                   setSelected((prev) => ({ ...prev, [event.id]: e.target.checked }))
                 }
+                data-testid={`pending-card-checkbox-${event.id}`}
               />
-              <div style={{ flex: 1 }}>
-                <div className="pending-card__title">
+              <div style={{ flex: 1 }} data-testid={`pending-card-body-${event.id}`}>
+                <div className="pending-card__title" data-testid={`pending-card-title-${event.id}`}>
                   {event.artists[0] ?? "TBA"} — {event.venue_name ?? ""}
                 </div>
-                <div className="pending-card__meta">
+                <div className="pending-card__meta" data-testid={`pending-card-meta-${event.id}`}>
                   {formatted} • {days_until} day{days_until === 1 ? "" : "s"} out
                 </div>
                 {genre && (
-                  <div className="pending-card__meta">
+                  <div
+                    className="pending-card__meta"
+                    data-testid={`pending-card-genre-${event.id}`}
+                  >
                     Genre: {genre}
                   </div>
                 )}
@@ -272,6 +328,7 @@ function BucketSection({
                   href={event.ticket_url}
                   target="_blank"
                   rel="noreferrer"
+                  data-testid={`pending-card-tickets-${event.id}`}
                 >
                   Tickets
                 </a>
@@ -280,6 +337,7 @@ function BucketSection({
                 className="button"
                 onClick={() => onPreview(event.id)}
                 disabled={isPreviewing}
+                data-testid={`pending-card-preview-button-${event.id}`}
               >
                 {isPreviewing
                   ? "Previewing…"
