@@ -1,48 +1,15 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { invoke } from "@tauri-apps/api/core";
-import { openUrl } from "@tauri-apps/plugin-opener";
 
 import { DEFAULT_LLM_ENDPOINT, useSettings } from "../hooks/useSettings";
 
-type FacebookStatus = {
-  connected: boolean;
-  groupId: string | null;
-  userName: string | null;
-  expiresAt: string | null;
-};
-
-type FacebookGroup = {
-  id: string;
-  name: string;
-  administrator: boolean;
-};
-
 export default function Settings() {
   const { settings, update, save, reset, loaded, dirty, savedAt } = useSettings();
-  const [fbStatus, setFbStatus] = useState<FacebookStatus | null>(null);
-  const [fbGroups, setFbGroups] = useState<FacebookGroup[]>([]);
-  const [oauthCode, setOauthCode] = useState("");
-  const [fbBusy, setFbBusy] = useState(false);
-  const [fbError, setFbError] = useState<string | null>(null);
   const [modelOptions, setModelOptions] = useState<string[]>([]);
   const [modelsBusy, setModelsBusy] = useState(false);
   const [modelsError, setModelsError] = useState<string | null>(null);
   const [modelsRefreshKey, setModelsRefreshKey] = useState(0);
 
   const isDisabled = !loaded;
-
-  const refreshStatus = useCallback(async () => {
-    try {
-      const status = await invoke<FacebookStatus>("facebook_status");
-      setFbStatus(status);
-    } catch (error) {
-      console.error("Failed to load Facebook status", error);
-    }
-  }, []);
-
-  useEffect(() => {
-    refreshStatus();
-  }, [refreshStatus]);
 
   const effectiveLlmEndpoint = useMemo(() => {
     const trimmed = settings.llmEndpoint.trim();
@@ -153,95 +120,6 @@ export default function Settings() {
     setModelsRefreshKey((prev) => prev + 1);
   }, []);
 
-  const handleStartOAuth = useCallback(async () => {
-    setFbError(null);
-    if (!settings.facebookAppId || !settings.facebookRedirectUri) {
-      setFbError("Add a Facebook App ID and redirect URI before starting the OAuth flow.");
-      return;
-    }
-    try {
-      const url = await invoke<string>("facebook_oauth_url", {
-        appId: settings.facebookAppId,
-        redirectUri: settings.facebookRedirectUri,
-      });
-      await openUrl(url);
-    } catch (error) {
-      console.error(error);
-      setFbError("Unable to launch Facebook OAuth; check console for details.");
-    }
-  }, [settings.facebookAppId, settings.facebookRedirectUri]);
-
-  const handleCompleteOAuth = useCallback(async () => {
-    if (!oauthCode.trim()) {
-      setFbError("Paste the authorization code returned to your redirect URI.");
-      return;
-    }
-    if (!settings.facebookAppId || !settings.facebookAppSecret || !settings.facebookRedirectUri) {
-      setFbError("App ID, App Secret, and redirect URI are required to exchange the code.");
-      return;
-    }
-
-    try {
-      setFbBusy(true);
-      setFbError(null);
-      const status = await invoke<FacebookStatus>("facebook_complete_oauth", {
-        appId: settings.facebookAppId,
-        appSecret: settings.facebookAppSecret,
-        redirectUri: settings.facebookRedirectUri,
-        code: oauthCode.trim(),
-      });
-      setFbStatus(status);
-      setOauthCode("");
-      setFbGroups([]);
-    } catch (error) {
-      console.error(error);
-      setFbError("Failed to exchange code for an access token.");
-    } finally {
-      setFbBusy(false);
-    }
-  }, [oauthCode, settings.facebookAppId, settings.facebookAppSecret, settings.facebookRedirectUri]);
-
-  const handleLoadGroups = useCallback(async () => {
-    try {
-      setFbBusy(true);
-      setFbError(null);
-      const groups = await invoke<FacebookGroup[]>("facebook_list_groups");
-      setFbGroups(groups);
-    } catch (error) {
-      console.error(error);
-      setFbError("Unable to load Facebook groups for the connected profile.");
-    } finally {
-      setFbBusy(false);
-    }
-  }, []);
-
-  const handleSelectGroup = useCallback(async (groupId: string) => {
-    try {
-      setFbBusy(true);
-      const status = await invoke<FacebookStatus>("facebook_set_group", { groupId });
-      setFbStatus(status);
-    } catch (error) {
-      console.error(error);
-      setFbError("Failed to save Facebook group.");
-    } finally {
-      setFbBusy(false);
-    }
-  }, []);
-
-  const handleDisconnect = useCallback(async () => {
-    try {
-      setFbBusy(true);
-      await invoke("facebook_disconnect");
-      setFbStatus({ connected: false, groupId: null, userName: null, expiresAt: null });
-      setFbGroups([]);
-    } catch (error) {
-      console.error(error);
-      setFbError("Failed to disconnect Facebook session.");
-    } finally {
-      setFbBusy(false);
-    }
-  }, []);
-
   return (
     <div className="space-y-6">
       <div className="section-header">
@@ -327,128 +205,11 @@ export default function Settings() {
 
       <div className="card form-section">
         <header className="form-section__header">
-          <h2>Facebook OAuth</h2>
-          <p>Sign in with a Facebook app and choose which group receives automated posts.</p>
+          <h2>Posting Workflow</h2>
+          <p>Drafts are generated here and posted to Facebook manually.</p>
         </header>
 
         <div className="form-grid">
-          <label className="form-field">
-            <span className="form-field__label">Facebook App ID</span>
-            <span className="form-field__description">Value from the Facebook developer console.</span>
-            <input
-              className="input"
-              type="text"
-              value={settings.facebookAppId}
-              onChange={(event) => update("facebookAppId", event.target.value)}
-              disabled={isDisabled}
-            />
-          </label>
-
-          <label className="form-field">
-            <span className="form-field__label">Facebook App Secret</span>
-            <span className="form-field__description">Only stored locally and used during the code exchange.</span>
-            <input
-              className="input"
-              type="password"
-              value={settings.facebookAppSecret}
-              onChange={(event) => update("facebookAppSecret", event.target.value)}
-              disabled={isDisabled}
-            />
-          </label>
-
-          <label className="form-field">
-            <span className="form-field__label">Redirect URI</span>
-            <span className="form-field__description">
-              Must match the redirect URI configured in your Facebook app (e.g. `show-scrape://auth/callback`).
-            </span>
-            <input
-              className="input"
-              type="text"
-              value={settings.facebookRedirectUri}
-              onChange={(event) => update("facebookRedirectUri", event.target.value)}
-              disabled={isDisabled}
-            />
-          </label>
-        </div>
-
-        <div className="form-grid" style={{ marginTop: 8 }}>
-          <div className="form-field">
-            <span className="form-field__label">OAuth Actions</span>
-            <span className="form-field__description">
-              Launch the Facebook login, then paste the returned code to finish the exchange.
-            </span>
-            <div style={{ display: "flex", gap: "12px", flexWrap: "wrap" }}>
-              <button className="button" onClick={handleStartOAuth} disabled={fbBusy || isDisabled}>
-                Open Facebook Login
-              </button>
-              <input
-                className="input"
-                type="text"
-                placeholder="Paste ?code=..."
-                value={oauthCode}
-                onChange={(event) => setOauthCode(event.target.value)}
-                style={{ flex: 1, minWidth: 220 }}
-                disabled={fbBusy || isDisabled}
-              />
-              <button className="button" onClick={handleCompleteOAuth} disabled={fbBusy || isDisabled}>
-                Exchange Code
-              </button>
-              <button className="button" onClick={handleDisconnect} disabled={fbBusy || isDisabled}>
-                Disconnect
-              </button>
-            </div>
-          </div>
-        </div>
-
-        {fbError && <div className="toast toast--error">{fbError}</div>}
-
-        {fbStatus && (
-          <div className="card" style={{ background: "rgba(59, 130, 246, 0.07)" }}>
-            <div className="form-field__label">Current Session</div>
-            <div className="summary-list" style={{ listStyle: "none", padding: 0 }}>
-              <div>Connected: {fbStatus.connected ? "Yes" : "No"}</div>
-              <div>User: {fbStatus.userName ?? "—"}</div>
-              <div>Group ID: {fbStatus.groupId ?? "Not selected"}</div>
-              <div>Token expires: {fbStatus.expiresAt ?? "Unknown"}</div>
-            </div>
-          </div>
-        )}
-
-        <div className="form-grid">
-          <div className="form-field">
-            <span className="form-field__label">Groups</span>
-            <span className="form-field__description">
-              Load groups for the connected user and choose the destination for automated posts.
-            </span>
-            <div style={{ display: "flex", gap: "12px", flexWrap: "wrap" }}>
-              <button className="button" onClick={handleLoadGroups} disabled={fbBusy || isDisabled}>
-                Load Groups
-              </button>
-            </div>
-            {fbGroups.length > 0 && (
-              <div style={{ display: "grid", gap: "8px", marginTop: "12px" }}>
-                {fbGroups.map((group) => (
-                  <button
-                    key={group.id}
-                    className="button"
-                    style={{
-                      justifyContent: "space-between",
-                      display: "flex",
-                      alignItems: "center",
-                    }}
-                    onClick={() => handleSelectGroup(group.id)}
-                    disabled={fbBusy || isDisabled}
-                  >
-                    <span>{group.name}</span>
-                    <span style={{ fontSize: "12px", opacity: 0.7 }}>
-                      {group.administrator ? "Admin" : "Member"}
-                    </span>
-                  </button>
-                ))}
-              </div>
-            )}
-          </div>
-
           <label className="checkbox-field">
             <input
               type="checkbox"
@@ -457,9 +218,9 @@ export default function Settings() {
               disabled={isDisabled}
             />
             <div>
-              <span className="form-field__label">Show notification after posting</span>
+              <span className="form-field__label">Show notification after marking posted</span>
               <span className="form-field__description">
-                A toast confirmation keeps humans in the loop after each Graph API call.
+                Keep the manual workflow visible with a toast after events are marked complete.
               </span>
             </div>
           </label>

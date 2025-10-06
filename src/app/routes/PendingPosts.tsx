@@ -8,6 +8,7 @@ import {
   bucketKeys,
 } from "../../lib/types";
 import { usePendingBuckets } from "../hooks/usePendingBuckets";
+import { useSettings } from "../hooks/useSettings";
 
 const LABELS: Record<BucketKey, string> = {
   DAY_OF: "Day Of",
@@ -25,6 +26,7 @@ type ToastState = {
 
 export default function PendingPosts() {
   const { data, loading, refresh } = usePendingBuckets();
+  const { settings } = useSettings();
   const [selected, setSelected] = useState<Record<string, boolean>>({});
   const [preview, setPreview] = useState<string>("");
   const [busy, setBusy] = useState(false);
@@ -108,20 +110,22 @@ export default function PendingPosts() {
     }
   }
 
-  async function handlePost() {
+  async function handleMarkPosted() {
     if (!ids.length) return;
     setBusy(true);
     setToast(null);
     try {
-      for (const id of ids) {
-        await invoke<string>("post_to_facebook", { eventId: id });
-      }
+      await invoke("mark_events_posted", { eventIds: ids });
       setSelected({});
       await refresh();
-      setToast({ kind: "success", message: `Posted ${ids.length} event(s).` });
+      if (settings.notifyOnPost) {
+        setToast({ kind: "success", message: `Marked ${ids.length} event(s) as posted.` });
+      } else {
+        setToast(null);
+      }
     } catch (error: unknown) {
       console.error(error);
-      setToast({ kind: "error", message: "Posting failed. Check logs." });
+      setToast({ kind: "error", message: "Marking events failed. Check logs." });
     } finally {
       setBusy(false);
     }
@@ -138,11 +142,18 @@ export default function PendingPosts() {
           <button
             className="button"
             disabled={!ids.length || busy}
-            onClick={handlePost}
+            onClick={handleMarkPosted}
           >
-            {busy ? "Posting…" : `Post to Facebook (${ids.length})`}
+            {busy ? "Marking…" : `Mark Posted (${ids.length})`}
           </button>
         </div>
+      </div>
+
+      <div className="card" style={{ background: "rgba(59, 130, 246, 0.07)" }}>
+        <p style={{ margin: 0 }}>
+          Copy each draft into Facebook manually. When a show is published, use <strong>Mark Posted</strong>
+          to archive it here.
+        </p>
       </div>
 
       {toast && (
