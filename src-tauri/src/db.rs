@@ -3,6 +3,7 @@ use rusqlite::{params, Connection};
 use serde_json::json;
 
 use crate::models::Event;
+use crate::musicbrainz::ArtistProfile;
 use crate::utils;
 
 pub struct Store {
@@ -40,6 +41,11 @@ impl Store {
                 created_at_utc TEXT,
                 status TEXT,
                 response_json TEXT
+            );
+            CREATE TABLE IF NOT EXISTS musicbrainz_cache(
+                artist_key TEXT PRIMARY KEY,
+                profile_json TEXT NOT NULL,
+                fetched_at_utc TEXT NOT NULL
             );",
         )?;
         Ok(())
@@ -142,6 +148,52 @@ impl Store {
                 "posted",
                 post_payload
             ],
+        )?;
+        Ok(())
+    }
+
+    pub fn get_musicbrainz_profile(
+        &self,
+        artist_key: &str,
+    ) -> rusqlite::Result<Option<Option<ArtistProfile>>> {
+        let result: rusqlite::Result<String> = self.conn.query_row(
+            "SELECT profile_json FROM musicbrainz_cache WHERE artist_key = ?1",
+            params![artist_key],
+            |row| row.get(0),
+        );
+
+        match result {
+            Ok(payload) => {
+                let parsed: Option<ArtistProfile> =
+                    serde_json::from_str(&payload).map_err(|err| {
+                        rusqlite::Error::FromSqlConversionFailure(
+                            payload.len(),
+                            rusqlite::types::Type::Text,
+                            Box::new(err),
+                        )
+                    })?;
+                Ok(Some(parsed))
+            }
+            Err(rusqlite::Error::QueryReturnedNoRows) => Ok(None),
+            Err(err) => Err(err),
+        }
+    }
+
+    pub fn put_musicbrainz_profile(
+        &self,
+        artist_key: &str,
+        profile: &Option<ArtistProfile>,
+    ) -> rusqlite::Result<()> {
+        let now = Utc::now().to_rfc3339();
+        let payload = serde_json::to_string(profile)
+            .map_err(|err| rusqlite::Error::ToSqlConversionFailure(Box::new(err)))?;
+        self.conn.execute(
+            "INSERT INTO musicbrainz_cache (artist_key, profile_json, fetched_at_utc)
+             VALUES (?1, ?2, ?3)
+             ON CONFLICT(artist_key) DO UPDATE SET
+               profile_json = excluded.profile_json,
+               fetched_at_utc = excluded.fetched_at_utc",
+            params![artist_key, payload, now],
         )?;
         Ok(())
     }
