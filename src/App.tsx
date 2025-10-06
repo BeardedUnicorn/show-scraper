@@ -56,8 +56,11 @@ export default function App() {
   }
 
   return (
-    <div className={`app-shell${sidebarOpen ? " app-shell--sidebar-open" : ""}`}>
-      <a className="skip-link" href="#main-content">
+    <div
+      data-testid="app-shell"
+      className={`app-shell${sidebarOpen ? " app-shell--sidebar-open" : ""}`}
+    >
+      <a data-testid="skip-to-content-link" className="skip-link" href="#main-content">
         Skip to content
       </a>
       {!isDesktop && sidebarOpen && (
@@ -66,24 +69,40 @@ export default function App() {
           className="app-shell__backdrop"
           aria-label="Close navigation"
           onClick={handleCloseSidebar}
+          data-testid="sidebar-backdrop"
         />
       )}
-      <aside className="app-shell__sidebar" aria-label="Primary navigation">
-        <div className="app-shell__brand">
-          <span className="app-shell__logo" aria-hidden="true">
+      <aside
+        className="app-shell__sidebar"
+        aria-label="Primary navigation"
+        data-testid="sidebar"
+      >
+        <div className="app-shell__brand" data-testid="app-shell-brand">
+          <span className="app-shell__logo" aria-hidden="true" data-testid="app-shell-logo">
             🎵
           </span>
-          <div>
-            <div className="app-shell__title">ShowScraper</div>
-            <div className="app-shell__subtitle">Tauri v2</div>
+          <div data-testid="app-shell-brand-text">
+            <div className="app-shell__title" data-testid="app-shell-title">
+              ShowScraper
+            </div>
+            <div className="app-shell__subtitle" data-testid="app-shell-subtitle">
+              Tauri v2
+            </div>
           </div>
         </div>
-        <nav id="primary-navigation" className="app-shell__nav">
+        <nav
+          id="primary-navigation"
+          className="app-shell__nav"
+          data-testid="primary-navigation"
+        >
           {navItems.map((item) => (
             <NavLink
               key={item.to}
               to={item.to}
               end={item.to === "/"}
+              data-testid={`nav-link-${
+                item.to === "/" ? "dashboard" : item.to.replace(/\//g, "-")
+              }`}
               className={({ isActive }) =>
                 `app-shell__nav-link${isActive ? " app-shell__nav-link--active" : ""}`
               }
@@ -93,26 +112,37 @@ export default function App() {
           ))}
         </nav>
       </aside>
-      <div className="app-shell__main">
-        <header className="app-shell__header">
+      <div className="app-shell__main" data-testid="app-shell-main">
+        <header className="app-shell__header" data-testid="app-shell-header">
           <button
             type="button"
             className="app-shell__menu-button"
             onClick={handleToggleSidebar}
             aria-controls="primary-navigation"
             aria-expanded={sidebarOpen}
+            data-testid="menu-button"
           >
             <span className="sr-only">Toggle navigation</span>
             ☰
           </button>
-          <div>
-            <div className="app-shell__header-title">ShowScraper</div>
-            <div className="app-shell__header-subtitle">
+          <div data-testid="app-shell-header-text">
+            <div className="app-shell__header-title" data-testid="app-shell-header-title">
+              ShowScraper
+            </div>
+            <div
+              className="app-shell__header-subtitle"
+              data-testid="app-shell-header-subtitle"
+            >
               Monitor scraping health, posting status, and upcoming tasks.
             </div>
           </div>
         </header>
-        <main id="main-content" className="app-shell__content" tabIndex={-1}>
+        <main
+          id="main-content"
+          className="app-shell__content"
+          tabIndex={-1}
+          data-testid="main-content"
+        >
           <Outlet />
         </main>
       </div>
